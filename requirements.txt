@@ -8,3 +8,4 @@ yfinance
 matplotlib
 plotly
 requests
+scikit-learn
