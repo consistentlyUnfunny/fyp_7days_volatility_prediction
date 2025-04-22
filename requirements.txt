@@ -10,3 +10,4 @@ plotly
 requests
 scikit-learn
 xgboost
+lightgbm
