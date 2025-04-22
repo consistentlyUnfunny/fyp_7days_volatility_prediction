@@ -1,0 +1,9 @@
+streamlit
+pandas
+numpy
+joblib
+torch
+transformers
+yfinance
+matplotlib
+plotly
