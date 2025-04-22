@@ -7,3 +7,4 @@ transformers
 yfinance
 matplotlib
 plotly
+requests
