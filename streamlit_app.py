@@ -14,6 +14,7 @@ import yfinance as yf
 # Load trained volatility prediction model
 import os
 import requests
+import traceback
 
 def download_file(url, local_path):
     if not os.path.exists(local_path):
@@ -32,8 +33,9 @@ download_file(model_url, model_path)
 # Load model
 try:
     model = joblib.load(model_path)
-except Exception as e:
-    st.error(f"❌ Error loading model: {str(e)}")
+except Exception:
+    st.error("❌ Failed to load model—here’s the full traceback:")
+    st.code(traceback.format_exc())
     st.stop()
 
 # Load scaler for Volume and Daily Return
@@ -42,8 +44,9 @@ try:
 except FileNotFoundError:
     st.error("❌ Error: Scaler file 'minmax_scaler.pkl' not found.")
     st.stop()
-except Exception as e:
-    st.error(f"❌ Error loading scaler: {str(e)}")
+except Exception:
+    st.error("❌ Failed to load model—here’s the full traceback:")
+    st.code(traceback.format_exc())
     st.stop()
 
 # Extract min and max values from the scaler for scaling optional inputs
