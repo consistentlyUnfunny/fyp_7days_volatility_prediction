@@ -16,27 +16,22 @@ import os
 import requests
 import traceback
 
-def download_file(url, local_path):
-    if not os.path.exists(local_path):
-        with requests.get(url, stream=True) as r:
-            with open(local_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
+from huggingface_hub import hf_hub_download
 
-# Hugging Face model URL 
-model_url = "https://huggingface.co/avadar-kedavra/fyp_models/resolve/main/stack_model_rf.pkl?download=true"
-model_path = "stack_model_rf.pkl"
+# this will fetch the actual LFS object
+model_path = hf_hub_download(
+    repo_id="avadar-kedavra/fyp_models",
+    filename="stack_model_rf.pkl",
+    repo_type="model"                 # defaults to "model", can omit
+)
 
-# Download model
-download_file(model_url, model_path)
-
-# Load model
 try:
     model = joblib.load(model_path)
 except Exception:
     st.error("❌ Failed to load model—here’s the full traceback:")
     st.code(traceback.format_exc())
     st.stop()
+
 
 # Load scaler for Volume and Daily Return
 try:
