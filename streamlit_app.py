@@ -12,11 +12,26 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 
 # Load trained volatility prediction model
+import os
+import requests
+
+def download_file(url, local_path):
+    if not os.path.exists(local_path):
+        with requests.get(url, stream=True) as r:
+            with open(local_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+# Hugging Face model URL 
+model_url = "https://huggingface.co/avadar-kedavra/fyp_models/resolve/main/stack_model_rf.pkl"
+model_path = "stack_model_rf.pkl"
+
+# Download model
+download_file(model_url, model_path)
+
+# Load model
 try:
-    model = joblib.load("models/stack_model_rf.pkl")
-except FileNotFoundError:
-    st.error("❌ Error: Volatility prediction model file 'stack_model_rf.pkl' not found.")
-    st.stop()
+    model = joblib.load(model_path)
 except Exception as e:
     st.error(f"❌ Error loading model: {str(e)}")
     st.stop()
@@ -44,24 +59,26 @@ def scale_value(raw, min_val, max_val):
     return np.clip(scaled, 0, 1)
 
 # Load FinBERT tokenizer
-finbert_path = "finbert_fintuned"  # Adjust this path as needed
+finbert_path = "finbert_fintuned"
+finbert_url = "https://huggingface.co/avadar-kedavra/fyp_models/resolve/main/finbert_fintuned"
+
+# Download FinBERT folder (using Hugging Face API)
+from transformers import BertTokenizer, BertForSequenceClassification
+
 try:
-    tokenizer = BertTokenizer.from_pretrained(finbert_path)
+    tokenizer = BertTokenizer.from_pretrained(finbert_url)
 except Exception as e:
     st.error(f"❌ Error loading FinBERT tokenizer: {str(e)}")
     st.stop()
 
-# Function to load FinBERT model with caching
 @st.cache_resource()
 def load_finbert():
     try:
-        return BertForSequenceClassification.from_pretrained(finbert_path)
+        return BertForSequenceClassification.from_pretrained(finbert_url)
     except Exception as e:
         st.error(f"❌ Error loading FinBERT model: {str(e)}")
         st.stop()
 
-# Load FinBERT model
-finbert_model = load_finbert()
 
 # Define footer content
 footer = """
