@@ -6,43 +6,59 @@ import torch
 import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
+import gdown
+import zipfile
 
-from huggingface_hub import snapshot_download
 from transformers import BertTokenizer, BertForSequenceClassification
 
 # Page config
 st.set_page_config(page_title="Stock Volatility Prediction Dashboard", layout="wide")
 
-# Download entire Hugging Face repo 
-local_dir = snapshot_download(
-    repo_id="avadar-kedavra/fyp_models",
-    repo_type="model",                   
-    revision="main",                     
-    allow_patterns=[
-        "stack_model_rf.pkl",
-        "finbert_fintuned/*"
-    ],
-    local_dir_use_symlinks=False         # ensure real files
-)
+# Google Drive file IDs and URLs
+stack_model_id = "1YXauFzO-M2fR1m52AZXNyXuYhMz98m_l"
+stack_model_url = f"https://drive.google.com/uc?id={stack_model_id}"
 
+finbert_zip_id = "1uxf-XFV_B9VRvYwGgGME9kuJUkJVuQIs"
+finbert_zip_url = f"https://drive.google.com/uc?id={finbert_zip_id}"
+
+# Download stacking model if not exists
+if not os.path.exists("stack_model_rf.pkl"):
+    st.info("Downloading stacking model from Google Drive...")
+    try:
+        gdown.download(stack_model_url, "stack_model_rf.pkl", quiet=False)
+    except Exception as e:
+        st.error(f"❌ Failed to download stacking model: {e}")
+        st.stop()
+
+# Download and extract FinBERT model if not exists
+if not os.path.exists("./finbert_fintuned/config.json"):
+    st.info("Downloading FinBERT model from Google Drive...")
+    try:
+        gdown.download(finbert_zip_url, "finbert_fintuned.zip", quiet=False)
+        st.info("Extracting FinBERT model...")
+        with zipfile.ZipFile("finbert_fintuned.zip", 'r') as zip_ref:
+            zip_ref.extractall("./")
+        os.remove("finbert_fintuned.zip")
+    except Exception as e:
+        st.error(f"❌ Failed to download or extract FinBERT model: {e}")
+        st.stop()
 
 # Load stacking model
-stack_path = os.path.join(local_dir, "stack_model_rf.pkl")
 try:
-    model = joblib.load(stack_path)
+    model = joblib.load("stack_model_rf.pkl")
 except Exception as e:
     st.error(f"❌ Couldn’t load stack_model_rf.pkl: {e}")
     st.stop()
 
-# Load FinBERT from subfolder
+# Load FinBERT from local directory
 try:
-    tokenizer     = BertTokenizer.from_pretrained(local_dir, subfolder="finbert_fintuned")
-    finbert_model = BertForSequenceClassification.from_pretrained(local_dir, subfolder="finbert_fintuned")
+    tokenizer = BertTokenizer.from_pretrained("./finbert_fintuned")
+    finbert_model = BertForSequenceClassification.from_pretrained("./finbert_fintuned")
 except Exception as e:
     st.error(f"❌ Couldn’t load FinBERT: {e}")
     st.stop()
 
-# Load scaler
+# Load scaler (assumed to be in the GitHub repo)
 try:
     scaler = joblib.load("minmax_scaler.pkl")
 except FileNotFoundError:
@@ -66,11 +82,11 @@ def predict_sentiment(text: str):
     with torch.no_grad():
         logits = finbert_model(**inputs).logits
     probs = torch.nn.functional.softmax(logits, dim=1)[0].tolist()
-    cls  = int(torch.argmax(logits, dim=1))
-    labels = {0:"Positive",1:"Neutral",2:"Negative"}
+    cls = int(torch.argmax(logits, dim=1))
+    labels = {0: "Positive", 1: "Neutral", 2: "Negative"}
     return cls, labels[cls], probs
 
-# footer
+# Footer
 footer = """
 <div style="text-align: center; padding: 10px; color: #888;">
     Developed by Ong Kang Hao, Asia Pacific University of Technology & Innovation
@@ -484,7 +500,7 @@ elif st.session_state.page == "Feature Importance":
 
 # Stock Market Trends Page
 elif st.session_state.page == "Stock Market Trends":
-    # use plotly for interactive charts
+    # Use plotly for interactive charts
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots 
 
@@ -665,7 +681,7 @@ elif st.session_state.page == "Stock Market Trends":
                     fig.add_trace(go.Scatter(
                         x=data.index, y=rsi, mode='lines', name='RSI', line=dict(color='purple')
                     ))
-                    # overbought/oversold lines
+                    # Overbought/oversold lines
                     fig.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, annotation_text="Overbought (70)")
                     fig.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, annotation_text="Oversold (30)")
                     fig.update_layout(
@@ -716,7 +732,6 @@ elif st.session_state.page == "Stock Market Trends":
                 # Recent Trading Data
                 st.subheader("📋 Recent Trading Data")
                 st.dataframe(data.tail(5))
-
 
         # No ticker entered
         else:
