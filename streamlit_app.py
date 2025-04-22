@@ -14,7 +14,17 @@ from transformers import BertTokenizer, BertForSequenceClassification
 st.set_page_config(page_title="Stock Volatility Prediction Dashboard", layout="wide")
 
 # Download entire Hugging Face repo 
-local_dir = snapshot_download("avadar-kedavra/fyp_models")
+local_dir = snapshot_download(
+    repo_id="avadar-kedavra/fyp_models",
+    repo_type="model",                   
+    revision="main",                     
+    allow_patterns=[
+        "stack_model_rf.pkl",
+        "finbert_fintuned/*"
+    ],
+    local_dir_use_symlinks=False         # ensure real files
+)
+
 
 # Load stacking model
 stack_path = os.path.join(local_dir, "stack_model_rf.pkl")
