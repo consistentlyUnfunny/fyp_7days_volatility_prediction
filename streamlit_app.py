@@ -1,5 +1,7 @@
 import streamlit as st
 
+st.set_option('server.showErrorDetails', True)
+
 # Page configuration
 st.set_page_config(page_title="Stock Volatility Prediction Dashboard", layout="wide")
 
