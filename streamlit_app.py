@@ -24,7 +24,7 @@ def download_file(url, local_path):
                     f.write(chunk)
 
 # Hugging Face model URL 
-model_url = "https://huggingface.co/avadar-kedavra/fyp_models/resolve/main/stack_model_rf.pkl"
+model_url = "https://huggingface.co/avadar-kedavra/fyp_models/resolve/main/stack_model_rf.pkl?download=true"
 model_path = "stack_model_rf.pkl"
 
 # Download model
@@ -61,26 +61,19 @@ def scale_value(raw, min_val, max_val):
     scaled = (raw - min_val) / (max_val - min_val)
     return np.clip(scaled, 0, 1)
 
-# Load FinBERT tokenizer
-finbert_path = "finbert_fintuned"
-finbert_url = "https://huggingface.co/avadar-kedavra/fyp_models/resolve/main/finbert_fintuned"
-
-# Download FinBERT folder (using Hugging Face API)
-from transformers import BertTokenizer, BertForSequenceClassification
-
-try:
-    tokenizer = BertTokenizer.from_pretrained(finbert_url)
-except Exception as e:
-    st.error(f"❌ Error loading FinBERT tokenizer: {str(e)}")
-    st.stop()
-
 @st.cache_resource()
 def load_finbert():
+    repo_subfolder = "avadar-kedavra/fyp_models/finbert_fintuned"
     try:
-        return BertForSequenceClassification.from_pretrained(finbert_url)
+        tokenizer = BertTokenizer.from_pretrained(repo_subfolder)
+        model     = BertForSequenceClassification.from_pretrained(repo_subfolder)
+        return tokenizer, model
     except Exception as e:
-        st.error(f"❌ Error loading FinBERT model: {str(e)}")
+        st.error(f"❌ Error loading FinBERT from Hugging Face: {e}")
         st.stop()
+
+# call once at startup
+tokenizer, finbert_model = load_finbert()
 
 
 # Define footer content
