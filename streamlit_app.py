@@ -1,77 +1,66 @@
-import streamlit as st
-
-# Page configuration
-st.set_page_config(page_title="Stock Volatility Prediction Dashboard", layout="wide")
-
+import os
 import joblib
 import numpy as np
 import pandas as pd
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification
-import matplotlib.pyplot as plt
+import streamlit as st
 import yfinance as yf
+import matplotlib.pyplot as plt
 
-# Load trained volatility prediction model
-import os
-import requests
-import traceback
+from huggingface_hub import snapshot_download
+from transformers import BertTokenizer, BertForSequenceClassification
 
-from huggingface_hub import hf_hub_download
+# Page config
+st.set_page_config(page_title="Stock Volatility Prediction Dashboard", layout="wide")
 
-# this will fetch the actual LFS object
-model_path = hf_hub_download(
-    repo_id="avadar-kedavra/fyp_models",
-    filename="stack_model_rf.pkl",
-    repo_type="model"                 # defaults to "model", can omit
-)
+# Download entire Hugging Face repo 
+local_dir = snapshot_download("avadar-kedavra/fyp_models")
 
+# Load stacking model
+stack_path = os.path.join(local_dir, "stack_model_rf.pkl")
 try:
-    model = joblib.load(model_path)
-except Exception:
-    st.error("❌ Failed to load model—here’s the full traceback:")
-    st.code(traceback.format_exc())
+    model = joblib.load(stack_path)
+except Exception as e:
+    st.error(f"❌ Couldn’t load stack_model_rf.pkl: {e}")
     st.stop()
 
+# Load FinBERT from subfolder
+try:
+    tokenizer     = BertTokenizer.from_pretrained(local_dir, subfolder="finbert_fintuned")
+    finbert_model = BertForSequenceClassification.from_pretrained(local_dir, subfolder="finbert_fintuned")
+except Exception as e:
+    st.error(f"❌ Couldn’t load FinBERT: {e}")
+    st.stop()
 
-# Load scaler for Volume and Daily Return
+# Load scaler
 try:
     scaler = joblib.load("minmax_scaler.pkl")
 except FileNotFoundError:
-    st.error("❌ Error: Scaler file 'minmax_scaler.pkl' not found.")
+    st.error("❌ Scaler file 'minmax_scaler.pkl' not found.")
     st.stop()
-except Exception:
-    st.error("❌ Failed to load model—here’s the full traceback:")
-    st.code(traceback.format_exc())
+except Exception as e:
+    st.error(f"❌ Error loading scaler: {e}")
     st.stop()
 
-# Extract min and max values from the scaler for scaling optional inputs
 volume_min, daily_return_min = scaler.data_min_
 volume_max, daily_return_max = scaler.data_max_
 
-# Define a helper function to scale raw values manually
+# Helpers 
 def scale_value(raw, min_val, max_val):
-    """Scale a raw value using the min-max scaling formula and clip to [0, 1]."""
-    if max_val == min_val:  # Prevent division by zero
-        return 0.5  # Default to midpoint if range is zero
-    scaled = (raw - min_val) / (max_val - min_val)
-    return np.clip(scaled, 0, 1)
+    if max_val == min_val:
+        return 0.5
+    return float(np.clip((raw - min_val) / (max_val - min_val), 0, 1))
 
-@st.cache_resource()
-def load_finbert():
-    repo_subfolder = "avadar-kedavra/fyp_models/finbert_fintuned"
-    try:
-        tokenizer = BertTokenizer.from_pretrained(repo_subfolder)
-        model     = BertForSequenceClassification.from_pretrained(repo_subfolder)
-        return tokenizer, model
-    except Exception as e:
-        st.error(f"❌ Error loading FinBERT from Hugging Face: {e}")
-        st.stop()
+def predict_sentiment(text: str):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    with torch.no_grad():
+        logits = finbert_model(**inputs).logits
+    probs = torch.nn.functional.softmax(logits, dim=1)[0].tolist()
+    cls  = int(torch.argmax(logits, dim=1))
+    labels = {0:"Positive",1:"Neutral",2:"Negative"}
+    return cls, labels[cls], probs
 
-# call once at startup
-tokenizer, finbert_model = load_finbert()
-
-
-# Define footer content
+# footer
 footer = """
 <div style="text-align: center; padding: 10px; color: #888;">
     Developed by Ong Kang Hao, Asia Pacific University of Technology & Innovation
